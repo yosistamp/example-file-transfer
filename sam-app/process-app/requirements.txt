@@ -1,0 +1,2 @@
+# This Lambda uses the boto3 library, which is included in the AWS Lambda runtime.
+# No external dependencies are required.
