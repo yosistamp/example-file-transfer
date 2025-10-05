@@ -31,10 +31,6 @@ jobs:
       - name: Set up SAM CLI
         uses: aws-actions/setup-sam@v2
 
-      - name: Build SAM application
-        run: sam build --use-container
-        working-directory: ./sam-app
-
       - name: Deploy SAM application
         id: sam_deploy
         run: >

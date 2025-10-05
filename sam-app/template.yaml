@@ -50,32 +50,11 @@ Resources:
   FileUploadFunction:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: !Sub "${ProjectName}-FileUploadFunction"
       PackageType: Image
       Architectures:
         - x86_64
-      Environment:
-        Variables:
-          S3_BUCKET_NAME: !Ref S3BucketName
-          DYNAMODB_TABLE_NAME: !Ref DynamoDBTableName
-          DESTINATION_SYSTEM_ID: "A01"
-      Policies:
-        - S3WritePolicy:
-            BucketName: !Ref S3BucketName
-        - DynamoDBCrudPolicy:
-            TableName: !Ref DynamoDBTableName
-      Events:
-        UploadApi:
-          Type: HttpApi
-          Properties:
-            Path: /upload
-            Method: post
-            ApiId: !Ref HttpApi
-            Auth:
-              Authorizer: CognitoAuthorizer
-    Metadata:
-      DockerTag: python3.11-v1
-      DockerContext: ./upload-app
-      Dockerfile: Dockerfile
+      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}/upload-app:latest"
 
   # ---------------------------------------------------------------------------
   # StepFunctions Integration Lambda Function
@@ -87,12 +66,7 @@ Resources:
       PackageType: Image
       Architectures:
         - x86_64
-      # This function doesn't need specific environment variables from here,
-      # as it only processes the event payload.
-    Metadata:
-      DockerTag: python3.11-v1
-      DockerContext: ./process-app
-      Dockerfile: Dockerfile
+      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}/process-app:latest"
 
 Outputs:
   ApiEndpoint:
