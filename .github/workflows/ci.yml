@@ -3,7 +3,7 @@ name: Build and Push Docker images to ECR
 on:
   push:
     branches:
-      - main
+      - feat/*
     paths:
       - 'sam-app/**'
       - '.github/workflows/**'
