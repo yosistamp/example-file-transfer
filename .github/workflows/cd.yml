@@ -20,10 +20,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5.0.0
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v5.0.0
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # GitHub Secret: ARN of the IAM role for deployment
           aws-region: ${{ secrets.AWS_REGION }}             # GitHub Secret: e.g., ap-northeast-1
