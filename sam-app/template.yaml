@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM application for the file upload system, including an API Gateway and two Lambda functions.
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: The name of the project, used for resource naming.
+  S3BucketName:
+    Type: String
+    Description: The name of the S3 bucket for file storage (created by Terraform).
+  DynamoDBTableName:
+    Type: String
+    Description: The name of the DynamoDB table for metadata (created by Terraform).
+  CognitoUserPoolId:
+    Type: String
+    Description: The ID of the Cognito User Pool for the API authorizer.
+  CognitoAppClientId:
+    Type: String
+    Description: The ID of the Cognito App Client for the API authorizer.
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # API Gateway with Cognito Authorizer
+  # ---------------------------------------------------------------------------
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Auth:
+        Authorizers:
+          CognitoAuthorizer:
+            IdentitySource: "$request.header.Authorization"
+            JwtConfiguration:
+              issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}"
+              audience:
+                - !Ref CognitoAppClientId
+        DefaultAuthorizer: CognitoAuthorizer
+      # By default, the authorizer context (including claims) is passed to the Lambda integration.
+      # We will extract the user ID from the event in the Lambda code.
+
+  # ---------------------------------------------------------------------------
+  # File Upload Lambda Function
+  # ---------------------------------------------------------------------------
+  FileUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref S3BucketName
+          DYNAMODB_TABLE_NAME: !Ref DynamoDBTableName
+          DESTINATION_SYSTEM_ID: "A01"
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref S3BucketName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        UploadApi:
+          Type: HttpApi
+          Properties:
+            Path: /upload
+            Method: post
+            ApiId: !Ref HttpApi
+            Auth:
+              Authorizer: CognitoAuthorizer
+    Metadata:
+      DockerTag: python3.11-v1
+      DockerContext: ./upload-app
+      Dockerfile: Dockerfile
+
+  # ---------------------------------------------------------------------------
+  # StepFunctions Integration Lambda Function
+  # ---------------------------------------------------------------------------
+  ProcessEventFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-ProcessEventFunction"
+      PackageType: Image
+      Architectures:
+        - x86_64
+      # This function doesn't need specific environment variables from here,
+      # as it only processes the event payload.
+    Metadata:
+      DockerTag: python3.11-v1
+      DockerContext: ./process-app
+      Dockerfile: Dockerfile
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  FileUploadFunctionName:
+    Description: "File Upload Lambda Function Name"
+    Value: !Ref FileUploadFunction
+  ProcessEventFunctionName:
+    Description: "Process Event Lambda Function Name"
+    Value: !Ref ProcessEventFunction
