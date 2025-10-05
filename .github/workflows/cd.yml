@@ -33,18 +33,14 @@ jobs:
 
       - name: Deploy SAM application
         id: sam_deploy
-        run: >
-          sam deploy
-          --no-confirm-changeset
-          --no-fail-on-empty-changeset
-          --stack-name ${{ secrets.PROJECT_NAME }}-sam-app
-          --parameter-overrides
-            ProjectName=${{ secrets.PROJECT_NAME }}
-            S3BucketName=${{ secrets.S3_BUCKET_NAME }}
-            DynamoDBTableName=${{ secrets.DYNAMODB_TABLE_NAME }}
-            CognitoUserPoolId=${{ secrets.COGNITO_USER_POOL_ID }}
-            CognitoAppClientId=${{ secrets.COGNITO_APP_CLIENT_ID }}
-          --capabilities CAPABILITY_IAM
+        run: |
+          PARAM_OVERRIDES="ProjectName=${{ secrets.PROJECT_NAME }} S3BucketName=${{ secrets.S3_BUCKET_NAME }} DynamoDBTableName=${{ secrets.DYNAMODB_TABLE_NAME }} CognitoUserPoolId=${{ secrets.COGNITO_USER_POOL_ID }} CognitoAppClientId=${{ secrets.COGNITO_APP_CLIENT_ID }}"
+          sam deploy \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --stack-name "${{ secrets.PROJECT_NAME }}-sam-app" \
+            --parameter-overrides $PARAM_OVERRIDES \
+            --capabilities CAPABILITY_IAM
         working-directory: ./sam-app
 
       - name: Update Step Function with Lambda ARN
