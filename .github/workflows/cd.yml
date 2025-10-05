@@ -33,6 +33,8 @@ jobs:
 
       - name: Deploy SAM application
         id: sam_deploy
+        env:
+          SAM_CLI_TELEMETRY: 0
         run: |
           PARAM_OVERRIDES="ProjectName=${{ secrets.PROJECT_NAME }} S3BucketName=${{ secrets.S3_BUCKET_NAME }} DynamoDBTableName=${{ secrets.DYNAMODB_TABLE_NAME }} CognitoUserPoolId=${{ secrets.COGNITO_USER_POOL_ID }} CognitoAppClientId=${{ secrets.COGNITO_APP_CLIENT_ID }}"
           sam deploy \
@@ -40,7 +42,8 @@ jobs:
             --no-fail-on-empty-changeset \
             --stack-name "${{ secrets.PROJECT_NAME }}-sam-app" \
             --parameter-overrides $PARAM_OVERRIDES \
-            --capabilities CAPABILITY_IAM
+            --capabilities CAPABILITY_IAM \
+            --resolve-image-repos
         working-directory: ./sam-app
 
       - name: Update Step Function with Lambda ARN
@@ -62,16 +65,16 @@ jobs:
             echo "Error: Could not get ARN for function $FUNCTION_NAME."
             exit 1
           fi
-
-          echo "Updating State Machine with Function ARN: $FUNCTION_ARN"
-
           # Get the current state machine definition
           DEFINITION=$(aws stepfunctions describe-state-machine --state-machine-arn $STATE_MACHINE_ARN --query "definition" --output text)
 
           # Replace the placeholder with the actual ARN
-          NEW_DEFINITION=$(echo "$DEFINITION" | sed "s|PLEASE_UPDATE_VIA_CD_PIPELINE|$FUNCTION_ARN|g")
+          NEW_DEFINITION=$(echo "$DEFINITION" | sed "s|PLEASE_UPDATE_VIA_CD_PIPELINE|$FUNCTION_ARN|g") --query "definition" --output text)
 
-          # Update the state machine
+          # Update the state machinewith the actual ARN
+          aws stepfunctions update-state-machine --state-machine-arn $STATE_MACHINE_ARN --definition "$NEW_DEFINITION"
+
+          echo "State machine updated successfully."
           aws stepfunctions update-state-machine --state-machine-arn $STATE_MACHINE_ARN --definition "$NEW_DEFINITION"
 
           echo "State machine updated successfully."
