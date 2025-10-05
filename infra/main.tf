@@ -256,11 +256,12 @@ resource "aws_sfn_state_machine" "downstream_workflow" {
 # -----------------------------------------------------------------------------
 # EventBridge Pipe
 # -----------------------------------------------------------------------------
-resource "aws_pipe" "dynamodb_to_sfn" {
+resource "aws_pipes_pipe" "dynamodb_to_sfn" {
   name     = "${var.project_name}-dynamo-to-sfn-pipe"
   role_arn = aws_iam_role.pipe_role.arn
 
-  source           = aws_dynamodb_table.metadata.stream_arn
+  source = aws_dynamodb_table.metadata.stream_arn
+
   source_parameters {
     dynamodb_stream_parameters {
       starting_position = "LATEST"
@@ -268,7 +269,7 @@ resource "aws_pipe" "dynamodb_to_sfn" {
     }
   }
 
-  target = aws_sfn_state_machine.downstream_workflow.id
+  target = aws_sfn_state_machine.downstream_workflow.arn
 }
 
 # -----------------------------------------------------------------------------
