@@ -2,7 +2,7 @@
 FROM public.ecr.aws/lambda/python:3.12
 
 # Install Lambda Web Adapter
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.7.0 /lambda-adapter /opt/extensions/lambda-adapter
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 
 # Set the working directory in the container
 WORKDIR /var/task
