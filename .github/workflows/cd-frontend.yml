@@ -1,0 +1,59 @@
+name: Deploy Frontend Application
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/cd-frontend.yml'
+
+permissions:
+  id-token: write # Required for OIDC authentication with AWS
+  contents: read  # Required to check out the repository
+
+jobs:
+  deploy-frontend:
+    name: Build and Deploy Frontend
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy Frontend
+        env:
+          FRONTEND_S3_BUCKET: ${{ secrets.FRONTEND_S3_BUCKET_NAME }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.FRONTEND_CLOUDFRONT_ID }}
+          PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+        run: |
+          echo "Starting frontend deployment..."
+
+          # Get API Gateway endpoint from the SAM stack outputs
+          API_ENDPOINT=$(aws cloudformation describe-stacks --stack-name ${PROJECT_NAME}-sam-app --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" --output text)
+          if [ -z "$API_ENDPOINT" ]; then
+            echo "Error: Could not find ApiEndpoint in stack outputs. Make sure the backend is deployed first."
+            exit 1
+          fi
+
+          echo "API Endpoint found: $API_ENDPOINT"
+
+          # Replace placeholder in JavaScript file
+          # Using a different delimiter for sed because the URL contains slashes
+          sed -i "s|<YOUR_API_GATEWAY_ENDPOINT>|${API_ENDPOINT}|g" frontend/script.js
+          echo "script.js updated with API endpoint."
+
+          # Sync files to S3
+          aws s3 sync ./frontend s3://${FRONTEND_S3_BUCKET} --delete
+          echo "Frontend files synced to S3 bucket: ${FRONTEND_S3_BUCKET}"
+
+          # Invalidate CloudFront cache
+          aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} --paths "/*"
+          echo "CloudFront cache invalidation created for distribution: ${CLOUDFRONT_DISTRIBUTION_ID}"

@@ -1,4 +1,4 @@
-name: Deploy Full Stack Application
+name: Deploy SAM Application
 
 on:
   push:
@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'sam-app/**'
-      - 'frontend/**'
       - '.github/workflows/cd.yml'
 
 permissions:
@@ -15,9 +14,9 @@ permissions:
 
 jobs:
   deploy:
-    name: Build and Deploy Application
+    name: Build and Deploy SAM App
     runs-on: ubuntu-latest
-    environment: production
+    environment: production # Optional: for environment-specific secrets and rules
 
     steps:
       - name: Checkout code
@@ -26,8 +25,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # GitHub Secret: ARN of the IAM role for deployment
+          aws-region: ${{ secrets.AWS_REGION }}             # GitHub Secret: e.g., ap-northeast-1
 
       - name: Set up SAM CLI
         uses: aws-actions/setup-sam@v2
@@ -56,40 +55,31 @@ jobs:
         env:
           STATE_MACHINE_ARN: ${{ secrets.STATE_MACHINE_ARN }}
         run: |
+          # Get the function name from the SAM stack outputs
           FUNCTION_NAME=$(aws cloudformation describe-stacks --stack-name ${{ secrets.PROJECT_NAME }}-sam-app --query "Stacks[0].Outputs[?OutputKey=='ProcessEventFunctionName'].OutputValue" --output text)
-          if [ -z "$FUNCTION_NAME" ]; then echo "Error: Could not find ProcessEventFunctionName in stack outputs."; exit 1; fi
 
+          if [ -z "$FUNCTION_NAME" ]; then
+            echo "Error: Could not find ProcessEventFunctionName in stack outputs."
+            exit 1
+          fi
+
+          # Get the full function ARN
           FUNCTION_ARN=$(aws lambda get-function --function-name $FUNCTION_NAME --query "Configuration.FunctionArn" --output text)
-          if [ -z "$FUNCTION_ARN" ]; then echo "Error: Could not get ARN for function $FUNCTION_NAME."; exit 1; fi
+
+          if [ -z "$FUNCTION_ARN" ]; then
+            echo "Error: Could not get ARN for function $FUNCTION_NAME."
+            exit 1
+          fi
 
           echo "Updating State Machine with Function ARN: $FUNCTION_ARN"
+
+          # Get the current state machine definition
           DEFINITION=$(aws stepfunctions describe-state-machine --state-machine-arn $STATE_MACHINE_ARN --query "definition" --output text)
+
+          # Replace the placeholder with the actual ARN
           NEW_DEFINITION=$(echo "$DEFINITION" | sed "s|PLEASE_UPDATE_VIA_CD_PIPELINE|$FUNCTION_ARN|g")
+
+          # Update the state machine
           aws stepfunctions update-state-machine --state-machine-arn $STATE_MACHINE_ARN --definition "$NEW_DEFINITION"
+
           echo "State machine updated successfully."
-
-      - name: Deploy Frontend
-        env:
-          FRONTEND_S3_BUCKET: ${{ secrets.FRONTEND_S3_BUCKET_NAME }}
-          CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.FRONTEND_CLOUDFRONT_ID }}
-        run: |
-          echo "Starting frontend deployment..."
-
-          # Get API Gateway endpoint
-          API_ENDPOINT=$(aws cloudformation describe-stacks --stack-name ${{ secrets.PROJECT_NAME }}-sam-app --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" --output text)
-          if [ -z "$API_ENDPOINT" ]; then echo "Error: Could not find ApiEndpoint in stack outputs."; exit 1; fi
-
-          echo "API Endpoint found: $API_ENDPOINT"
-
-          # Replace placeholder in JavaScript file
-          # Note: Using a different delimiter for sed because the URL contains slashes
-          sed -i "s|<YOUR_API_GATEWAY_ENDPOINT>|${API_ENDPOINT}|g" frontend/script.js
-          echo "script.js updated with API endpoint."
-
-          # Sync files to S3
-          aws s3 sync ./frontend s3://${FRONTEND_S3_BUCKET} --delete
-          echo "Frontend files synced to S3 bucket: ${FRONTEND_S3_BUCKET}"
-
-          # Invalidate CloudFront cache
-          aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} --paths "/*"
-          echo "CloudFront cache invalidation created for distribution: ${CLOUDFRONT_DISTRIBUTION_ID}"

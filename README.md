@@ -32,15 +32,14 @@ The system is composed of two main parts: the core infrastructure managed by Ter
     *   **AWS Lambda:** Two Python functions running in containers.
     *   **FastAPI:** A modern Python web framework for the upload API.
 *   **Storage & Database:**
-    *   **Amazon S3:** For durable file storage (separate from the frontend bucket).
+    *   **Amazon S3:** For durable file storage.
     *   **Amazon DynamoDB:** For storing file metadata.
 *   **Authentication & Authorization:**
     *   **Amazon Cognito:** For user authentication and API authorization.
 *   **Integration & Orchestration:**
-    *   **Amazon API Gateway (HTTP API):** To expose the REST endpoint.
-    *   **Amazon DynamoDB Streams, EventBridge Pipes, Step Functions**.
+    *   **Amazon API Gateway (HTTP API), DynamoDB Streams, EventBridge Pipes, Step Functions**.
 *   **CI/CD:**
-    *   **GitHub Actions:** For automated code quality checks and full-stack deployment.
+    *   **GitHub Actions:** Separate workflows for Python CI, backend (SAM) deployment, and frontend deployment.
 
 ---
 
@@ -64,9 +63,9 @@ The system is composed of two main parts: the core infrastructure managed by Ter
 
 ### Step 2: Configure GitHub Secrets for CD
 
-The CD workflow requires several secrets to be set in your GitHub repository's settings (`Settings > Secrets and variables > Actions`).
+The CD workflows require several secrets to be set in your GitHub repository's settings (`Settings > Secrets and variables > Actions`).
 
-1.  Create an IAM Role in AWS that GitHub Actions can assume. It needs permissions to deploy SAM applications, sync to S3, and create CloudFront invalidations. The trust policy must allow the GitHub OIDC provider.
+1.  Create an IAM Role in AWS that GitHub Actions can assume. It needs permissions to deploy SAM applications, update Step Functions, sync to S3, and create CloudFront invalidations. The trust policy must allow the GitHub OIDC provider.
 2.  Add the following repository secrets using the values from the `terraform output`:
     *   `AWS_ROLE_TO_ASSUME`: The ARN of the IAM role for deployment.
     *   `AWS_REGION`: The AWS region where you deployed the resources (e.g., `ap-northeast-1`).
@@ -81,7 +80,12 @@ The CD workflow requires several secrets to be set in your GitHub repository's s
 
 ### Step 3: Deploy via CI/CD
 
-Pushing your code to the `main` branch will automatically trigger the GitHub Actions workflow. It will deploy the SAM backend, then deploy the frontend files to S3 and invalidate the CloudFront cache.
+This project uses two separate CD workflows:
+
+*   **Backend Deployment (`cd.yml`):** Triggered by changes in the `sam-app/` directory. It builds and deploys the SAM application (API Gateway, Lambdas) and updates the Step Functions integration.
+*   **Frontend Deployment (`cd-frontend.yml`):** Triggered by changes in the `frontend/` directory. It injects the API endpoint into the JavaScript, syncs the files to S3, and invalidates the CloudFront cache.
+
+Pushing your code to the `main` branch will automatically trigger the appropriate workflow based on the files you changed.
 
 ---
 
@@ -90,7 +94,7 @@ Pushing your code to the `main` branch will automatically trigger the GitHub Act
 ### 1. Create and Authenticate a User
 
 1.  **Create a user:** Create a user manually in your Cognito User Pool in the AWS Console.
-2.  **Authenticate via AWS CLI:** Use the AWS CLI to sign in and get an **IdToken**. (See previous `README` versions for the exact `aws cognito-idp` commands if needed).
+2.  **Authenticate via AWS CLI:** Use the AWS CLI to sign in and get an **IdToken**.
 
 ### 2. Upload a File
 
@@ -99,4 +103,4 @@ Pushing your code to the `main` branch will automatically trigger the GitHub Act
 3.  **Authorize:** Paste the `IdToken` you obtained from Cognito into the "Step 1: Authentication" text area.
 4.  **Upload:** Choose a file, add an optional comment, and click the "Upload" button.
 
-The status of the upload will be displayed on the page. You can check your S3 bucket and DynamoDB table to verify the results. The processing Lambda's logs in CloudWatch will show the event being processed moments later.
+The status of the upload will be displayed on the page. The CD pipeline for the frontend automatically injects the correct API endpoint, so no manual configuration is needed.
