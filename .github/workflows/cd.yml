@@ -66,16 +66,14 @@ jobs:
             echo "Error: Could not get ARN for function $FUNCTION_NAME."
             exit 1
           fi
+
           # Get the current state machine definition
           DEFINITION=$(aws stepfunctions describe-state-machine --state-machine-arn $STATE_MACHINE_ARN --query "definition" --output text)
 
           # Replace the placeholder with the actual ARN
-          NEW_DEFINITION=$(echo "$DEFINITION" | sed "s|PLEASE_UPDATE_VIA_CD_PIPELINE|$FUNCTION_ARN|g") --query "definition" --output text)
+          NEW_DEFINITION=$(echo "$DEFINITION" | sed "s|PLEASE_UPDATE_VIA_CD_PIPELINE|$FUNCTION_ARN|g")
 
-          # Update the state machinewith the actual ARN
-          aws stepfunctions update-state-machine --state-machine-arn $STATE_MACHINE_ARN --definition "$NEW_DEFINITION"
-
-          echo "State machine updated successfully."
+          # Update the state machine with the actual ARN
           aws stepfunctions update-state-machine --state-machine-arn $STATE_MACHINE_ARN --definition "$NEW_DEFINITION"
 
           echo "State machine updated successfully."
