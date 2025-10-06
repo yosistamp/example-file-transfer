@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ファイルアップロード</title>
+</head>
+<body>
+  <h1>ファイルアップロード</h1>
+  <form id="uploadForm">
+    <input type="file" id="fileInput" name="file" required />
+    <button type="submit">アップロード</button>
+  </form>
+  <div id="result"></div>
+  <script>
+    // 1. Hosted UIのコールバックでIDトークンを取得
+    function getIdTokenFromHash() {
+      const hash = window.location.hash.substr(1);
+      const params = new URLSearchParams(hash);
+      return params.get('id_token');
+    }
+
+    // 2. ローカルストレージに保存（初回のみ）
+    const idToken = getIdTokenFromHash();
+    if (idToken) {
+      localStorage.setItem('id_token', idToken);
+    }
+
+    // 3. ローカルストレージからIDトークン取得
+    function getIdToken() {
+      return localStorage.getItem('id_token');
+    }
+
+    async function exchangeCodeForToken(code) {
+      const clientId = '2a173mh0nmqlaop6nsgjno135l'; // Cognito App Client ID
+      const redirectUri = 'https://d6gnrqd33nkhx.cloudfront.net/'; // Hosted UIのリダイレクトURIと一致させる
+      const url = 'https://s3-dynamo-pipe-app-domain.auth.ap-northeast-1.amazoncognito.com/oauth2/token';
+
+      const params = new URLSearchParams();
+      params.append('grant_type', 'authorization_code');
+      params.append('client_id', clientId);
+      params.append('code', code);
+      params.append('redirect_uri', redirectUri);
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: params
+      });
+
+      if (!res.ok) {
+        throw new Error('トークン取得失敗');
+      }
+      return await res.json(); // { id_token, access_token, ... }
+    }
+
+    // 初回ロード時にcodeパラメータがあればトークン取得
+    (async function() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      if (code) {
+        try {
+          const tokenResponse = await exchangeCodeForToken(code);
+          localStorage.setItem('id_token', tokenResponse.id_token);
+          // URLからcodeパラメータを消す
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (e) {
+          document.getElementById('result').textContent = '認証トークン取得失敗: ' + e.message;
+        }
+      }
+    })();
+
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const file = document.getElementById('fileInput').files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = getIdToken();
+      if (!token) {
+        document.getElementById('result').textContent = '認証トークンがありません。再ログインしてください。';
+        return;
+      }
+
+      const res = await fetch('https://fqtaw0mi90.execute-api.ap-northeast-1.amazonaws.com/upload', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': token
+        }
+      });
+
+      if (res.status === 401) {
+        document.getElementById('result').textContent = '認証エラーです。再ログインしてください。';
+      } else {
+        document.getElementById('result').textContent = await res.text();
+      }
+    });
+  </script>
+</body>
+</html>
