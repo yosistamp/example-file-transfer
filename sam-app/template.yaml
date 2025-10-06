@@ -62,6 +62,14 @@ Resources:
             ApiId: !Ref HttpApi
             Path: /upload
             Method: POST
+            Cors:
+              AllowOrigins:
+                - "*"
+              AllowHeaders:
+                - "*"
+              AllowMethods:
+                - "OPTIONS"
+                - "POST"
 
   # ---------------------------------------------------------------------------
   # StepFunctions Integration Lambda Function

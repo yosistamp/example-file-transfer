@@ -347,3 +347,103 @@ output "process_app_ecr_repo_url" {
   description = "The URL of the ECR repository for the process application."
   value       = aws_ecr_repository.process_app_repo.repository_url
 }
+
+# -----------------------------------------------------------------------------
+# Frontend S3 Bucket for Static Website Hosting
+# -----------------------------------------------------------------------------
+resource "aws_s3_bucket" "frontend_bucket" {
+  bucket = "${var.project_name}-frontend"
+  tags = {
+    Name = "${var.project_name}-frontend"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "frontend_bucket_encryption" {
+  bucket = aws_s3_bucket.frontend_bucket.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_versioning" "frontend_bucket_versioning" {
+  bucket = aws_s3_bucket.frontend_bucket.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "frontend_bucket_public_access" {
+  bucket = aws_s3_bucket.frontend_bucket.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_cloudfront_distribution" "frontend_cdn" {
+  origin {
+    domain_name              = aws_s3_bucket.frontend_bucket.bucket_regional_domain_name
+    origin_id                = "frontendS3Origin"
+    origin_access_control_id = aws_cloudfront_origin_access_control.frontend_cdn_oac.id
+  }
+
+  enabled             = true
+  default_root_object = "index.html"
+
+  default_cache_behavior {
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "frontendS3Origin"
+    viewer_protocol_policy = "redirect-to-https"
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+}
+
+resource "aws_cloudfront_origin_access_control" "frontend_cdn_oac" {
+  name                              = aws_s3_bucket.frontend_bucket.bucket
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+resource "aws_s3_bucket_policy" "frontend_bucket_policy" {
+  bucket = aws_s3_bucket.frontend_bucket.id
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        },
+        Action = "s3:GetObject",
+        Resource = "${aws_s3_bucket.frontend_bucket.arn}/*",
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.frontend_cdn.arn
+          }
+        }
+      }
+    ]
+  })
+}
