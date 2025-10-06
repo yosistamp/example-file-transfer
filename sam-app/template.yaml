@@ -41,6 +41,15 @@ Resources:
               audience:
                 - !Ref CognitoAppClientId
         DefaultAuthorizer: CognitoAuthorizer
+      StageName: prod
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - "*"
+        AllowMethods:
+          - "OPTIONS"
+          - "POST"
       # By default, the authorizer context (including claims) is passed to the Lambda integration.
       # We will extract the user ID from the event in the Lambda code.
 
@@ -62,14 +71,6 @@ Resources:
             ApiId: !Ref HttpApi
             Path: /upload
             Method: POST
-            Cors:
-              AllowOrigins:
-                - "*"
-              AllowHeaders:
-                - "*"
-              AllowMethods:
-                - "OPTIONS"
-                - "POST"
 
   # ---------------------------------------------------------------------------
   # StepFunctions Integration Lambda Function
