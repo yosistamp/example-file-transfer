@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'sam-app/**'
+      - 'sam-app/template.yaml'
       - '.github/workflows/cd.yml'
 
 permissions:
