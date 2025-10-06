@@ -5,7 +5,8 @@ on:
     branches:
       - develop
     paths:
-      - 'sam-app/**'
+      - 'sam-app/process-app/**'
+      - 'sam-app/upload-app/**'
       - '.github/workflows/**'
 
 permissions:
