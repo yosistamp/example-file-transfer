@@ -55,6 +55,13 @@ Resources:
       Architectures:
         - x86_64
       ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}/upload-app:latest"
+      Events:
+        UploadApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /upload
+            Method: POST
 
   # ---------------------------------------------------------------------------
   # StepFunctions Integration Lambda Function

@@ -43,7 +43,8 @@ jobs:
             --stack-name "${{ secrets.PROJECT_NAME }}-sam-app" \
             --parameter-overrides $PARAM_OVERRIDES \
             --capabilities CAPABILITY_IAM \
-            --resolve-image-repos
+            --resolve-image-repos \
+            --s3-bucket s3-dynamo-pipe-app-sam
         working-directory: ./sam-app
 
       - name: Update Step Function with Lambda ARN

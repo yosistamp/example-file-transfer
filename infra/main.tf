@@ -58,6 +58,40 @@ resource "aws_cloudwatch_metric_alarm" "s3_monitoring" {
   }
 }
 
+resource "aws_s3_bucket" "sam" {
+  bucket = "${var.project_name}-sam"
+
+  tags = {
+    Name = "${var.project_name}-sam"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "sam_encryption" {
+  bucket = aws_s3_bucket.sam.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_versioning" "sam_versioning" {
+  bucket = aws_s3_bucket.sam.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "sam_public_access" {
+  bucket = aws_s3_bucket.sam.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 # -----------------------------------------------------------------------------
 # DynamoDB Table for Metadata
 # -----------------------------------------------------------------------------
