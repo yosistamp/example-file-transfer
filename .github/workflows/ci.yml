@@ -1,53 +1,38 @@
-name: Build and Push Docker images to ECR
+name: Python Code Quality CI
 
 on:
   push:
     branches:
-      - develop
+      - main
     paths:
-      - 'sam-app/**'
-      - '.github/workflows/**'
-
-permissions:
-  id-token: write
-  contents: read
-
-env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
-  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-  PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+      - 'sam-app/**/*.py'
 
 jobs:
-  build-and-push:
-    name: Build and push images
+  lint:
+    name: Lint Python Code
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5.0.0
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v5.0.0
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
+          python-version: '3.11'
 
-      - name: Login to ECR
+      - name: Install dependencies
         run: |
-          aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          python -m pip install --upgrade pip
+          pip install flake8
+          # Install app-specific dependencies if linters need them (not required for flake8)
+          # pip install -r sam-app/upload-app/requirements.txt
+          # pip install -r sam-app/process-app/requirements.txt
 
-      - name: Set image tag
-        run: echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
-
-      - name: Build & push upload-app image
+      - name: Lint with flake8
         run: |
-          REPO="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}/upload-app"
-          docker build -t "${REPO}:${IMAGE_TAG}" -t "${REPO}:latest" ./sam-app/upload-app
-          docker push "${REPO}:${IMAGE_TAG}"
-          docker push "${REPO}:latest"
-
-      - name: Build & push process-app image
-        run: |
-          REPO="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}/process-app"
-          docker build -t "${REPO}:${IMAGE_TAG}" -t "${REPO}:latest" ./sam-app/process-app
-          docker push "${REPO}:${IMAGE_TAG}"
-          docker push "${REPO}:latest"
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        working-directory: ./sam-app

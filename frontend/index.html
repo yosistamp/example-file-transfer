@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Uploader</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Secure File Uploader</h1>
+
+        <div class="auth-section">
+            <h2>Step 1: Authentication</h2>
+            <p>Please provide your Cognito ID Token to authorize.</p>
+            <textarea id="idToken" placeholder="Paste your Cognito ID Token here" rows="4"></textarea>
+        </div>
+
+        <div class="upload-section">
+            <h2>Step 2: Upload File</h2>
+            <div class="form-group">
+                <label for="fileInput">Choose a file:</label>
+                <input type="file" id="fileInput" required>
+            </div>
+            <div class="form-group">
+                <label for="commentInput">Comment:</label>
+                <textarea id="commentInput" placeholder="Add an optional comment" rows="3"></textarea>
+            </div>
+            <button id="uploadButton">Upload</button>
+        </div>
+
+        <div id="status"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

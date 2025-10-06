@@ -1,5 +1,5 @@
 # Use the official Python image as a base image
-FROM public.ecr.aws/lambda/python:3.12
+FROM public.ecr.aws/lambda/python:3.11
 
 # Install Lambda Web Adapter
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.7.0 /lambda-adapter /opt/extensions/lambda-adapter

@@ -254,14 +254,110 @@ resource "aws_sfn_state_machine" "downstream_workflow" {
 }
 
 # -----------------------------------------------------------------------------
+# S3 Bucket for Frontend Hosting
+# -----------------------------------------------------------------------------
+resource "aws_s3_bucket" "frontend" {
+  bucket = "${var.project_name}-frontend"
+}
+
+resource "aws_s3_bucket_public_access_block" "frontend_public_access" {
+  bucket = aws_s3_bucket.frontend.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# -----------------------------------------------------------------------------
+# CloudFront for Frontend
+# -----------------------------------------------------------------------------
+resource "aws_cloudfront_origin_access_control" "frontend_oac" {
+  name                              = "${var.project_name}-oac"
+  description                       = "Origin Access Control for frontend S3 bucket"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+resource "aws_cloudfront_distribution" "frontend_cdn" {
+  origin {
+    domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
+    origin_id                = "${var.project_name}-s3-origin"
+    origin_access_control_id = aws_cloudfront_origin_access_control.frontend_oac.id
+  }
+
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = "index.html"
+
+  default_cache_behavior {
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "${var.project_name}-s3-origin"
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 0
+    default_ttl            = 3600
+    max_ttl                = 86400
+  }
+
+  price_class = "PriceClass_200" # Use "PriceClass_All" for global reach
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+
+  tags = {
+    Name = "${var.project_name}-frontend-cdn"
+  }
+}
+
+# S3 Bucket Policy to allow access only from CloudFront
+data "aws_iam_policy_document" "s3_policy" {
+  statement {
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.frontend.arn}/*"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.frontend_cdn.arn]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "frontend_policy" {
+  bucket = aws_s3_bucket.frontend.id
+  policy = data.aws_iam_policy_document.s3_policy.json
+}
+
+# -----------------------------------------------------------------------------
 # EventBridge Pipe
 # -----------------------------------------------------------------------------
-resource "aws_pipes_pipe" "dynamodb_to_sfn" {
+resource "aws_pipe" "dynamodb_to_sfn" {
   name     = "${var.project_name}-dynamo-to-sfn-pipe"
   role_arn = aws_iam_role.pipe_role.arn
 
-  source = aws_dynamodb_table.metadata.stream_arn
-
+  source           = aws_dynamodb_table.metadata.stream_arn
   source_parameters {
     dynamodb_stream_parameters {
       starting_position = "LATEST"
@@ -269,7 +365,7 @@ resource "aws_pipes_pipe" "dynamodb_to_sfn" {
     }
   }
 
-  target = aws_sfn_state_machine.downstream_workflow.arn
+  target = aws_sfn_state_machine.downstream_workflow.id
 }
 
 # -----------------------------------------------------------------------------
@@ -312,4 +408,19 @@ output "upload_app_ecr_repo_url" {
 output "process_app_ecr_repo_url" {
   description = "The URL of the ECR repository for the process application."
   value       = aws_ecr_repository.process_app_repo.repository_url
+}
+
+output "frontend_s3_bucket_name" {
+  description = "The name of the S3 bucket for the frontend assets."
+  value       = aws_s3_bucket.frontend.bucket
+}
+
+output "frontend_cloudfront_domain_name" {
+  description = "The domain name of the CloudFront distribution for the frontend."
+  value       = aws_cloudfront_distribution.frontend_cdn.domain_name
+}
+
+output "frontend_cloudfront_distribution_id" {
+  description = "The ID of the CloudFront distribution for the frontend."
+  value       = aws_cloudfront_distribution.frontend_cdn.id
 }

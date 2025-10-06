@@ -49,8 +49,12 @@ async def upload_file(request_data: FileUploadRequest, request: Request):
     """
     try:
         # Extract user ID (sub) from the Cognito authorizer claims
-        claims = request.scope.get("aws.event", {}).get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
-        user_id = claims.get("sub")
+        aws_event = request.scope.get("aws.event", {})
+        request_context = aws_event.get("requestContext", {})
+        authorizer = request_context.get("authorizer", {})
+        jwt_claims = authorizer.get("jwt", {}).get("claims", {})
+        user_id = jwt_claims.get("sub")
+
         if not user_id:
             raise HTTPException(
                 status_code=403, detail="User ID not found in token claims."
