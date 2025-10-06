@@ -15,4 +15,5 @@ RUN pip install -r requirements.txt
 COPY ./app .
 
 # Set the command to run the application
-CMD ["/opt/extensions/lambda-adapter", "--", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+ENV PORT=8080
+CMD ["sh", "-c", "exec uvicorn --port=$PORT main:app"]
