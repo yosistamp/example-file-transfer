@@ -24,7 +24,8 @@ resource "aws_iam_policy" "upload_app_policy" {
         Action = [
           "ecr:GetAuthorizationToken",
           "ecr:BatchGetImage",
-          "ecr:GetDownloadUrlForLayer"
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:PutImage"
         ],
         Resource = "*"
       },
@@ -98,7 +99,8 @@ resource "aws_iam_policy" "process_event_policy" {
         Action = [
           "ecr:GetAuthorizationToken",
           "ecr:BatchGetImage",
-          "ecr:GetDownloadUrlForLayer"
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:PutImage"
         ],
         Resource = "*"
       },
