@@ -64,6 +64,7 @@ Resources:
       Architectures:
         - x86_64
       ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}/upload-app:39c0a504741bd198b4dfcbbbd516f71e336f69e4"
+      Role: arn:aws:iam::165985788939:role/s3-dynamo-pipe-app-upload-app-role
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref S3BucketName
@@ -88,6 +89,7 @@ Resources:
       Architectures:
         - x86_64
       ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}/process-app:latest"
+      Role: arn:aws:iam::165985788939:role/s3-dynamo-pipe-app-process-event-role
 
 Outputs:
   ApiEndpoint:
