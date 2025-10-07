@@ -20,7 +20,7 @@ dynamodb = boto3.resource("dynamodb")
 S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
 DYNAMODB_TABLE_NAME = os.environ.get("DYNAMODB_TABLE_NAME")
 DESTINATION_SYSTEM_ID = os.environ.get("DESTINATION_SYSTEM_ID", "A01")
-
+STAGE = "prod"
 if not S3_BUCKET_NAME or not DYNAMODB_TABLE_NAME:
     raise RuntimeError("S3_BUCKET_NAME and DYNAMODB_TABLE_NAME must be set")
 
@@ -41,7 +41,7 @@ class FileUploadRequest(BaseModel):
 # -----------------------------------------------------------------------------
 # API Endpoint for File Upload
 # -----------------------------------------------------------------------------
-@app.post("/upload")
+@app.post("/{}/upload".format(STAGE))
 async def upload_file(request_data: FileUploadRequest, request: Request):
     """
     Handles file upload, saves file to S3, and records metadata in DynamoDB.
@@ -108,7 +108,7 @@ async def upload_file(request_data: FileUploadRequest, request: Request):
 # -----------------------------------------------------------------------------
 # Health Check Endpoint
 # -----------------------------------------------------------------------------
-@app.get("/health")
+@app.get("/{}/health".format(STAGE))
 async def health_check():
     """
     A simple health check endpoint.
