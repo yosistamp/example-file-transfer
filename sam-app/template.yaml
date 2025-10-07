@@ -63,7 +63,7 @@ Resources:
       PackageType: Image
       Architectures:
         - x86_64
-      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}/upload-app:d0bd1c17679173203a190f36a2cbaec673d6cc94"
+      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}/upload-app:39c0a504741bd198b4dfcbbbd516f71e336f69e4"
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref S3BucketName
