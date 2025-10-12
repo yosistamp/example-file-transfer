@@ -33,17 +33,36 @@ table = dynamodb.Table(DYNAMODB_TABLE_NAME)
 # Logging Middleware
 class CustomLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        log_data = {}
-        # multipart/form-dataの場合、request.json()はエラーになるためContent-Typeで判定
-        if request.method == "POST" and request.headers.get("Content-Type") == "application/json":
-            try:
-                log_data["Body"] = await request.json()
-            except Exception as e:
-                log_data["Body"] = f"Could not parse JSON body: {e}"
+        log_data = {
+            "method": request.method,
+            "url": str(request.url),
+            "headers": dict(request.headers),
+        }
 
-        logging.info(log_data)
+        content_type = request.headers.get("content-type", "")
+        if request.method == "POST":
+            try:
+                if "application/json" in content_type:
+                    log_data["body"] = await request.json()
+                elif "multipart/form-data" in content_type:
+                    form = await request.form()
+                    log_data["form"] = {}
+                    for key, value in form.items():
+                        if hasattr(value, "filename"):
+                            log_data["form"][key] = {
+                                "filename": value.filename,
+                                "content_type": value.content_type,
+                                "size": len(await value.read())
+                            }
+                        else:
+                            log_data["form"][key] = value
+            except Exception as e:
+                log_data["error"] = f"Failed to parse body: {e}"
+
+        logger.info(log_data)
         response = await call_next(request)
         return response
+
 
 # Middleware registration
 app.add_middleware(CustomLoggingMiddleware)
