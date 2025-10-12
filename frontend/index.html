@@ -7,7 +7,14 @@
 <body>
   <h1>ファイルアップロード</h1>
   <form id="uploadForm">
-    <input type="file" id="fileInput" name="file" required />
+    <div>
+      <label for="fileInput">ファイル:</label>
+      <input type="file" id="fileInput" name="file" required />
+    </div>
+    <div>
+      <label for="commentInput">コメント:</label>
+      <input type="text" id="commentInput" name="comment" />
+    </div>
     <button type="submit">アップロード</button>
   </form>
   <div id="result"></div>
@@ -73,9 +80,22 @@
 
     document.getElementById('uploadForm').addEventListener('submit', async function(e) {
       e.preventDefault();
-      const file = document.getElementById('fileInput').files[0];
+      const fileInput = document.getElementById('fileInput');
+      const commentInput = document.getElementById('commentInput');
+
+      if (fileInput.files.length === 0) {
+        document.getElementById('result').textContent = 'ファイルを選択してください。';
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const comment = commentInput.value;
+
       const formData = new FormData();
       formData.append('file', file);
+      if (comment) {
+        formData.append('comment', comment);
+      }
 
       const token = getIdToken();
       if (!token) {
