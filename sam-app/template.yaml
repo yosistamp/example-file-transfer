@@ -63,7 +63,7 @@ Resources:
       PackageType: Image
       Architectures:
         - x86_64
-      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}/upload-app:1e0de313344b76bfb684b175adb2c134383c3e46"
+      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}/upload-app:b3d46b84f3e289f2b127e107099d496ef163ba82"
       Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/s3-dynamo-pipe-app-upload-app-role"
       Environment:
         Variables:
