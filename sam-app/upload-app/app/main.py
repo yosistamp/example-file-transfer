@@ -18,6 +18,7 @@ app = FastAPI()
 s3_client = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
 logger = logging.getLogger("uvicorn.access")
+debug_logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # Environment Variables
 # -----------------------------------------------------------------------------
@@ -60,7 +61,7 @@ class CustomLoggingMiddleware(BaseHTTPMiddleware):
             except Exception as e:
                 log_data["error"] = f"Failed to parse body: {e}"
 
-        logger.info(json.dumps(log_data, ensure_ascii=False))
+        debug_logger.info(json.dumps(log_data, ensure_ascii=False))
         response = await call_next(request)
         return response
 
