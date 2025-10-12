@@ -1,16 +1,21 @@
 import base64
 import datetime
 import os
+import logging
+
 from typing import Optional
 
 import boto3
 from fastapi import FastAPI, Request, HTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field
 
 # -----------------------------------------------------------------------------
 # FastAPI Application and AWS Clients
 # -----------------------------------------------------------------------------
 app = FastAPI()
+app.add_middleware(CustomLoggingMiddleware)
+
 s3_client = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
 
@@ -25,6 +30,24 @@ if not S3_BUCKET_NAME or not DYNAMODB_TABLE_NAME:
     raise RuntimeError("S3_BUCKET_NAME and DYNAMODB_TABLE_NAME must be set")
 
 table = dynamodb.Table(DYNAMODB_TABLE_NAME)
+
+
+# Logging Middleware
+class CustomLoggingMiddleware(BaseHTTPMiddleware):
+  async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    # リクエストボディを読み取る
+    log_data = {}
+    if request.method == "POST":
+      log_data["Body"] = await request.json()
+
+    # ログを記録する
+    logger.info(log_data)
+
+    # エンドポイント処理を実行する
+    response = await call_next(request)
+
+    # エンドポイント処理のレスポンスを返す
+    return response
 
 
 # -----------------------------------------------------------------------------
@@ -47,6 +70,7 @@ async def upload_file(request_data: FileUploadRequest, request: Request):
     Handles file upload, saves file to S3, and records metadata in DynamoDB.
     The user ID is extracted from the Cognito authorizer context.
     """
+
     try:
         # Extract user ID (sub) from the Cognito authorizer claims
         claims = request.scope.get("aws.event", {}).get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
