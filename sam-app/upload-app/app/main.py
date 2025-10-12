@@ -1,20 +1,18 @@
-import base64
 import datetime
 import os
 import logging
-
-from typing import Optional
+from typing import Optional, Callable, Awaitable
 
 import boto3
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
 from starlette.middleware.base import BaseHTTPMiddleware
-from pydantic import BaseModel, Field
+from starlette.responses import Response
+
 
 # -----------------------------------------------------------------------------
 # FastAPI Application and AWS Clients
 # -----------------------------------------------------------------------------
 app = FastAPI()
-app.add_middleware(CustomLoggingMiddleware)
 
 s3_client = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
@@ -34,97 +32,74 @@ table = dynamodb.Table(DYNAMODB_TABLE_NAME)
 
 # Logging Middleware
 class CustomLoggingMiddleware(BaseHTTPMiddleware):
-  async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-    # リクエストボディを読み取る
-    log_data = {}
-    if request.method == "POST":
-      log_data["Body"] = await request.json()
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        log_data = {}
+        # multipart/form-dataの場合、request.json()はエラーになるためContent-Typeで判定
+        if request.method == "POST" and request.headers.get("Content-Type") == "application/json":
+            try:
+                log_data["Body"] = await request.json()
+            except Exception as e:
+                log_data["Body"] = f"Could not parse JSON body: {e}"
 
-    # ログを記録する
-    logger.info(log_data)
+        logging.info(log_data)
+        response = await call_next(request)
+        return response
 
-    # エンドポイント処理を実行する
-    response = await call_next(request)
-
-    # エンドポイント処理のレスポンスを返す
-    return response
-
-
-# -----------------------------------------------------------------------------
-# Pydantic Models for Request Body
-# -----------------------------------------------------------------------------
-class FileUploadRequest(BaseModel):
-    file_name: str = Field(..., description="The name of the file.")
-    comment: Optional[str] = Field(
-        None, description="A comment about the file."
-    )
-    file_data: str = Field(..., description="Base64-encoded file content.")
-
+app.add_middleware(CustomLoggingMiddleware)
 
 # -----------------------------------------------------------------------------
 # API Endpoint for File Upload
 # -----------------------------------------------------------------------------
 @app.post("/{}/upload".format(STAGE))
-async def upload_file(request_data: FileUploadRequest, request: Request):
+async def upload_file(
+    request: Request,
+    file: UploadFile = File(...),
+    comment: Optional[str] = Form(None),
+):
     """
-    Handles file upload, saves file to S3, and records metadata in DynamoDB.
-    The user ID is extracted from the Cognito authorizer context.
+    Handles file upload using multipart/form-data, saves file to S3,
+    and records metadata in DynamoDB.
     """
-
     try:
-        # Extract user ID (sub) from the Cognito authorizer claims
         claims = request.scope.get("aws.event", {}).get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
         user_id = claims.get("sub")
         if not user_id:
-            raise HTTPException(
-                status_code=403, detail="User ID not found in token claims."
-            )
+            raise HTTPException(status_code=403, detail="User ID not found in token claims.")
     except Exception:
-        raise HTTPException(
-            status_code=403, detail="Could not validate user from token."
-        )
+        raise HTTPException(status_code=403, detail="Could not validate user from token.")
 
-    try:
-        file_content = base64.b64decode(request_data.file_data)
-    except (base64.binascii.Error, TypeError) as e:
-        raise HTTPException(
-            status_code=400, detail=f"Invalid Base64 data: {e}"
-        )
+    file_content = await file.read()
+    if not file_content:
+        raise HTTPException(status_code=400, detail="File content is empty.")
 
     current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]
+    # Use the original filename from the upload
     file_path = os.path.join(
-        DESTINATION_SYSTEM_ID, user_id, current_time, request_data.file_name
+        DESTINATION_SYSTEM_ID, user_id, current_time, file.filename
     )
 
     # --- 1. Upload to S3 ---
     try:
-        s3_client.put_object(
-            Bucket=S3_BUCKET_NAME, Key=file_path, Body=file_content
-        )
+        s3_client.put_object(Bucket=S3_BUCKET_NAME, Key=file_path, Body=file_content)
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to upload file to S3: {e}"
-        )
+        logging.error(f"S3 upload failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload file to S3: {e}")
 
     # --- 2. Register metadata in DynamoDB ---
     try:
         item_to_register = {
             "FilePath": file_path,
             "UserID": user_id,
-            "Comment": request_data.comment or "",
-            "RegistrationDate": datetime.datetime.now(
-                datetime.timezone.utc
-            ).isoformat(),
+            "Comment": comment or "",
+            "RegistrationDate": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "DownloadCount": 0,
             "DestinationSystemID": DESTINATION_SYSTEM_ID,
             "IsDeleted": False,
         }
         table.put_item(Item=item_to_register)
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to register metadata in DynamoDB: {e}"
-        )
+        logging.error(f"DynamoDB put_item failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to register metadata in DynamoDB: {e}")
 
     return {"message": "File uploaded successfully.", "s3_path": file_path}
 
