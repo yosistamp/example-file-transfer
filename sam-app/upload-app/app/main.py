@@ -1,5 +1,6 @@
 import datetime
 import os
+import json
 import logging
 from typing import Optional, Callable, Awaitable
 
@@ -16,7 +17,7 @@ app = FastAPI()
 
 s3_client = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
-
+logger = logging.getLogger("uvicorn.access")
 # -----------------------------------------------------------------------------
 # Environment Variables
 # -----------------------------------------------------------------------------
@@ -81,7 +82,16 @@ async def upload_file(
     and records metadata in DynamoDB.
     """
     try:
-        claims = request.scope.get("aws.event", {}).get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
+        aws_event = request.scope.get("aws.event")
+        logger.info(f"AWS Event: {json.dumps(aws_event, indent=2)}")
+        claims = {}
+        if aws_event:
+            claims = (
+                aws_event.get("requestContext", {})
+                .get("authorizer", {})
+                .get("jwt", {})
+                .get("claims", {})
+            )
         user_id = claims.get("sub")
         if not user_id:
             raise HTTPException(status_code=403, detail="User ID not found in token claims.")
