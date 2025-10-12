@@ -60,7 +60,7 @@ class CustomLoggingMiddleware(BaseHTTPMiddleware):
             except Exception as e:
                 log_data["error"] = f"Failed to parse body: {e}"
 
-        logger.info(log_data)
+        logger.info(json.dumps(log_data, ensure_ascii=False))
         response = await call_next(request)
         return response
 
@@ -82,17 +82,16 @@ async def upload_file(
     and records metadata in DynamoDB.
     """
     try:
-        aws_event = request.scope.get("aws.event")
-        logger.info(f"AWS Event: {json.dumps(aws_event, indent=2)}")
+        raw_context = request.headers.get("x-amzn-request-context")
         claims = {}
-        if aws_event:
-            claims = (
-                aws_event.get("requestContext", {})
-                .get("authorizer", {})
-                .get("jwt", {})
-                .get("claims", {})
-            )
-        user_id = claims.get("sub")
+        if raw_context:
+            try:
+                context = json.loads(raw_context)
+                claims = context.get("authorizer", {}).get("jwt", {}).get("claims", {})
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=500, detail="JSON parse error in authorizer.")
+
+            user_id = claims.get("sub")
         if not user_id:
             raise HTTPException(status_code=403, detail="User ID not found in token claims.")
     except Exception:
