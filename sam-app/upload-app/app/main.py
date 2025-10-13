@@ -18,7 +18,6 @@ app = FastAPI()
 s3_client = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
 logger = logging.getLogger("uvicorn.access")
-debug_logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # Environment Variables
 # -----------------------------------------------------------------------------
@@ -60,8 +59,8 @@ class CustomLoggingMiddleware(BaseHTTPMiddleware):
                             log_data["form"][key] = value
             except Exception as e:
                 log_data["error"] = f"Failed to parse body: {e}"
-
-        debug_logger.info(json.dumps(log_data, ensure_ascii=False))
+        message = json.dumps(log_data, ensure_ascii=False)
+        logger.info(f"request: {s}")
         response = await call_next(request)
         return response
 
@@ -84,6 +83,7 @@ async def upload_file(
     """
     try:
         raw_context = request.headers.get("x-amzn-request-context")
+        logger.info(f"x-amzn-request-context: {raw_context}")
         claims = {}
         if raw_context:
             try:
