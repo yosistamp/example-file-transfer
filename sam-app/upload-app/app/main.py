@@ -83,6 +83,7 @@ async def upload_file(
     """
     try:
         raw_context = request.headers.get("x-amzn-request-context")
+        logger.info(f"x-amzn-request-context: {raw_context}")
         claims = {}
         if raw_context:
             try:
