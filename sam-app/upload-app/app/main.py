@@ -60,7 +60,7 @@ class CustomLoggingMiddleware(BaseHTTPMiddleware):
             except Exception as e:
                 log_data["error"] = f"Failed to parse body: {e}"
         message = json.dumps(log_data, ensure_ascii=False)
-        logger.info(f"request: {s}")
+        logger.info(f"request: {message}")
         response = await call_next(request)
         return response
 
