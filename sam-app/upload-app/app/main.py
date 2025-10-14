@@ -89,7 +89,7 @@ async def upload_file(
         if raw_context:
             try:
                 context = json.loads(raw_context)
-                claims = context.get("authorizer", {}).get("jwt", {}).get("claims", {})
+                claims = context.get("authorizer", {}).get("claims", {})
             except json.JSONDecodeError:
                 raise HTTPException(status_code=500, detail="JSON parse error in authorizer.")
 
