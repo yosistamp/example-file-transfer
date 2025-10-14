@@ -77,7 +77,7 @@ Resources:
             ApiId: !Ref HttpApi
             Path: /upload
             Method: POST
-            PayloadFormatVersion: '2.0'
+            PayloadFormatVersion: '1.0'
 
   # ---------------------------------------------------------------------------
   # StepFunctions Integration Lambda Function
