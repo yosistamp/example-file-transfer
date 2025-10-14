@@ -33,41 +33,41 @@ table = dynamodb.Table(DYNAMODB_TABLE_NAME)
 
 
 # Logging Middleware
-class CustomLoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        log_data = {
-            "method": request.method,
-            "url": str(request.url),
-            "headers": dict(request.headers),
-        }
+# class CustomLoggingMiddleware(BaseHTTPMiddleware):
+#     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+#         log_data = {
+#             "method": request.method,
+#             "url": str(request.url),
+#             "headers": dict(request.headers),
+#         }
 
-        content_type = request.headers.get("content-type", "")
-        if request.method == "POST":
-            try:
-                if "application/json" in content_type:
-                    log_data["body"] = await request.json()
-                elif "multipart/form-data" in content_type:
-                    form = await request.form()
-                    log_data["form"] = {}
-                    for key, value in form.items():
-                        if hasattr(value, "filename"):
-                            log_data["form"][key] = {
-                                "filename": value.filename,
-                                "content_type": value.content_type,
-                                "size": len(await value.read())
-                            }
-                        else:
-                            log_data["form"][key] = value
-            except Exception as e:
-                log_data["error"] = f"Failed to parse body: {e}"
-        message = json.dumps(log_data, ensure_ascii=False)
-        logger.info(f"request: {message}")
-        response = await call_next(request)
-        return response
+#         content_type = request.headers.get("content-type", "")
+#         if request.method == "POST":
+#             try:
+#                 if "application/json" in content_type:
+#                     log_data["body"] = await request.json()
+#                 elif "multipart/form-data" in content_type:
+#                     form = await request.form()
+#                     log_data["form"] = {}
+#                     for key, value in form.items():
+#                         if hasattr(value, "filename"):
+#                             log_data["form"][key] = {
+#                                 "filename": value.filename,
+#                                 "content_type": value.content_type,
+#                                 "size": len(await value.read())
+#                             }
+#                         else:
+#                             log_data["form"][key] = value
+#             except Exception as e:
+#                 log_data["error"] = f"Failed to parse body: {e}"
+#         message = json.dumps(log_data, ensure_ascii=False)
+#         logger.info(f"request: {message}")
+#         response = await call_next(request)
+#         return response
 
 
-# Middleware registration
-app.add_middleware(CustomLoggingMiddleware)
+# # Middleware registration
+# app.add_middleware(CustomLoggingMiddleware)
 
 # -----------------------------------------------------------------------------
 # API Endpoint for File Upload
