@@ -17,7 +17,8 @@ app = FastAPI()
 
 s3_client = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
-logger = logging.getLogger("uvicorn.access")
+logger = logging.getLogger("uvicorn")
+logger.setLevel("INFO")
 # -----------------------------------------------------------------------------
 # Environment Variables
 # -----------------------------------------------------------------------------
